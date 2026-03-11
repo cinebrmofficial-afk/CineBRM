@@ -1,1 +1,87 @@
-1
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BRM Pro Max</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com">
+    <style>
+        :root { --bg: #000; --accent: #00f2ff; --gray: #888; }
+        body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; padding-bottom: 80px; }
+        header { position: fixed; top: 0; width: 100%; z-index: 1000; display: flex; padding: 10px; background: rgba(0,0,0,0.9); }
+        .search-box { flex: 1; background: #222; border-radius: 20px; padding: 8px 15px; display: flex; }
+        .search-box input { background: none; border: none; color: white; width: 100%; outline: none; }
+        .page { display: none; padding: 70px 15px 20px; }
+        .page.active { display: block; }
+        .scroll-row { display: flex; overflow-x: auto; gap: 10px; }
+        .movie-card { min-width: 110px; height: 160px; background-size: cover; border-radius: 8px; flex-shrink: 0; cursor: pointer; background-color: #111; }
+        #player { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 2000; flex-direction: column; }
+        video { width: 100%; flex: 1; }
+        nav { position: fixed; bottom: 0; width: 100%; height: 65px; background: #080808; display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #222; }
+        .nav-link { color: #555; text-align: center; font-size: 11px; cursor: pointer; }
+        .nav-link.active { color: var(--accent); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="search-box">
+            <i class="fas fa-search" style="margin-right:10px; color:var(--gray)"></i>
+            <input type="text" id="search" placeholder="Buscar filmes...">
+        </div>
+    </header>
+
+    <div id="home" class="page active">
+        <h3 style="color:var(--accent)">Destaques</h3>
+        <div class="scroll-row" id="movies">Carregando filmes...</div>
+    </div>
+
+    <div id="player">
+        <div style="padding:15px; background:#111" onclick="closePlayer()"><i class="fas fa-arrow-left"></i> Voltar</div>
+        <video id="v" controls></video>
+    </div>
+
+    <nav>
+        <div class="nav-link active" onclick="showPage('home', this)"><i class="fas fa-home"></i><br>Início</div>
+        <div class="nav-link" onclick="alert('Funcionalidade em breve!')"><i class="fas fa-folder"></i><br>Pastas</div>
+    </nav>
+
+    <script>
+        const KEY = '5799262499f305123f69c419c2a131e6';
+        const IMG = 'https://image.tmdb.org';
+
+        async function load(url = `https://api.themoviedb.org{KEY}&language=pt-BR`) {
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                const container = document.getElementById('movies');
+                container.innerHTML = '';
+                data.results.forEach(m => {
+                    const card = document.createElement('div');
+                    card.className = 'movie-card';
+                    card.style.backgroundImage = `url(${IMG + m.poster_path})`;
+                    card.onclick = () => {
+                        document.getElementById('player').style.display = 'flex';
+                        const v = document.getElementById('v');
+                        v.src = 'https://commondatastorage.googleapis.com';
+                        v.play();
+                    };
+                    container.appendChild(card);
+                });
+            } catch(e) { document.getElementById('movies').innerText = "Erro ao carregar. Verifique sua internet."; }
+        }
+
+        function closePlayer() {
+            document.getElementById('player').style.display = 'none';
+            document.getElementById('v').pause();
+        }
+
+        document.getElementById('search').oninput = (e) => {
+            if(e.target.value.length > 2) load(`https://api.themoviedb.org{KEY}&query=${e.target.value}&language=pt-BR`);
+            else if(e.target.value === "") load();
+        };
+
+        window.onload = () => load();
+    </script>
+</body>
+</html>
