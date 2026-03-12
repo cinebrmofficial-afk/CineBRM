@@ -1,0 +1,808 @@
+# Criar o arquivo HTML completo e funcional com TMDB API
+
+html_content = '''<!DOCTYPE html>
+<html lang="pt-pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BRM Pro Max</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --bg: #000; --accent: #00f2ff; --card: #111; --gray: #888; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--bg); color: white; font-family: sans-serif; margin: 0; padding-bottom: 80px; overflow-x: hidden; }
+
+        /* HEADER - SÓ APARECE NA HOME */
+        header { position: fixed; top: 0; width: 100%; z-index: 1000; display: none; align-items: center; padding: 10px 15px; background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent); backdrop-filter: blur(5px); }
+        header.active { display: flex; }
+        .logo-img { height: 42px; margin-right: 12px; filter: drop-shadow(0 0 5px var(--accent)); }
+        .search-box { flex: 1; background: rgba(255,255,255,0.1); border-radius: 20px; padding: 7px 15px; display: flex; align-items: center; }
+        .search-box input { background: none; border: none; color: white; width: 100%; outline: none; }
+
+        /* PAGES */
+        .page { display: none; animation: fadeIn 0.4s; min-height: 100vh; }
+        .page.active { display: block; }
+
+        /* HOME */
+        .hero { width: 100%; height: 500px; background-size: cover; background-position: center; display: flex; align-items: flex-end; padding: 40px 20px; cursor: pointer; transition: background-image 0.8s ease-in-out; position: relative; }
+        .hero::before { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 70%; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); }
+        .hero-content { position: relative; z-index: 2; }
+        .info-box { background: rgba(0,0,0,0.4); backdrop-filter: blur(10px); padding: 15px; border-radius: 4px; border-left: 3px solid var(--accent); }
+        .cat-title { padding: 20px 15px 5px; color: var(--accent); font-weight: bold; font-size: 14px; text-transform: uppercase; }
+        .scroll-row { display: flex; overflow-x: auto; gap: 10px; padding: 0 15px; }
+        .scroll-row::-webkit-scrollbar { display: none; }
+        .movie-card { min-width: 115px; height: 165px; background: var(--card); border-radius: 8px; border: 1px solid #222; flex-shrink: 0; position: relative; background-size: cover; background-position: center; cursor: pointer; transition: transform 0.2s; }
+        .movie-card:active { transform: scale(0.95); }
+        .movie-card .rating { position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.8); color: var(--accent); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+
+        /* DOWNLOADS */
+        .profile-box { display: flex; align-items: center; padding: 80px 20px 20px; }
+        .avatar { width: 60px; height: 60px; border-radius: 50%; background: #222; margin-right: 15px; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; font-size: 24px; }
+        .premium-card { background: #0f0f0f; margin: 0 15px; padding: 15px; border-radius: 12px; border: 1px solid #1a1a1a; }
+        .dl-item { background: #080808; margin: 15px; padding: 15px; border-radius: 10px; border: 1px solid #1a1a1a; }
+        .progress-bar { height: 4px; background: #222; width: 100%; margin: 10px 0; border-radius: 2px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--accent); width: 12%; box-shadow: 0 0 8px var(--accent); transition: width 0.3s; }
+        .folder-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; padding: 15px; }
+        .folder-item { background: #111; padding: 15px; border-radius: 8px; text-align: center; font-size: 11px; border: 1px solid #222; cursor: pointer; transition: all 0.2s; }
+        .folder-item:active { transform: scale(0.95); }
+        .folder-item i { font-size: 24px; color: var(--accent); margin-bottom: 8px; display: block; }
+
+        /* ME PAGE */
+        .me-header { padding: 80px 20px 10px; }
+        .me-list { padding: 20px; }
+        .me-item { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #111; cursor: pointer; padding: 15px 0; transition: all 0.2s; }
+        .me-item:hover { background: rgba(255,255,255,0.05); margin: 0 -20px; padding-left: 20px; padding-right: 20px; }
+        .me-item i:first-child { color: var(--accent); margin-right: 15px; width: 20px; }
+        .switch { width: 40px; height: 20px; background: #333; border-radius: 10px; position: relative; cursor: pointer; transition: 0.3s; flex-shrink: 0; margin-left: 10px; }
+        .switch.active { background: var(--accent); }
+        .switch::after { content: ''; position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; background: white; border-radius: 50%; transition: 0.3s; }
+        .switch.active::after { left: 22px; }
+
+        /* PLAYER */
+        #player { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 3000; display: none; flex-direction: column; }
+        #player.active { display: flex; }
+        .video-area { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; background: #000; }
+        .video-placeholder { text-align: center; color: var(--gray); }
+        .video-placeholder i { font-size: 60px; color: var(--accent); margin-bottom: 20px; }
+        .controls { padding: 25px; background: #0a0a0a; border-radius: 20px 20px 0 0; }
+        .control-buttons { display: flex; justify-content: center; gap: 30px; align-items: center; }
+        .control-btn { background: none; border: none; color: white; font-size: 24px; cursor: pointer; transition: all 0.2s; }
+        .control-btn:hover { color: var(--accent); transform: scale(1.1); }
+        .control-btn.play { font-size: 40px; color: var(--accent); }
+
+        /* NAVBAR */
+        nav { position: fixed; bottom: 0; width: 100%; height: 75px; background: #000; border-top: 1px solid #222; display: flex; justify-content: space-around; align-items: center; z-index: 2000; }
+        .nav-link { text-align: center; font-size: 10px; color: #555; cursor: pointer; transition: all 0.2s; padding: 10px; }
+        .nav-link.active { color: var(--accent); }
+        .nav-link i { font-size: 22px; display: block; margin-bottom: 4px; }
+
+        /* SUB PAGES */
+        .sub-page { display: none; animation: fadeIn 0.4s; min-height: 100vh; padding-bottom: 80px; position: fixed; top: 0; left: 0; width: 100%; background: var(--bg); z-index: 2500; }
+        .sub-page.active { display: block; }
+        .page-header { display: flex; align-items: center; padding: 60px 15px 15px; border-bottom: 1px solid #222; background: var(--bg); position: sticky; top: 0; z-index: 100; }
+        .page-header i { margin-right: 15px; color: var(--accent); cursor: pointer; font-size: 20px; }
+        .page-header h2 { margin: 0; font-size: 18px; }
+
+        /* LIST STYLES */
+        .content-list { padding: 15px; overflow-y: auto; height: calc(100vh - 150px); }
+        .list-item { display: flex; align-items: center; padding: 15px; background: #111; margin-bottom: 10px; border-radius: 10px; border: 1px solid #222; cursor: pointer; transition: all 0.2s; }
+        .list-item:active { transform: scale(0.98); background: #1a1a1a; }
+        .list-thumb { width: 80px; height: 120px; background: #222; border-radius: 6px; margin-right: 15px; background-size: cover; background-position: center; flex-shrink: 0; }
+        .list-info { flex: 1; }
+        .list-title { font-size: 14px; margin-bottom: 5px; font-weight: bold; }
+        .list-meta { font-size: 11px; color: var(--gray); }
+        .list-action { color: var(--accent); font-size: 18px; padding: 10px; }
+
+        /* SEARCH OVERLAY */
+        .search-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 2500; padding: 80px 15px 20px; }
+        .search-overlay.active { display: block; }
+        .search-header { display: flex; align-items: center; margin-bottom: 20px; position: fixed; top: 0; left: 0; right: 0; padding: 15px; background: var(--bg); z-index: 100; }
+        .search-header input { flex: 1; background: rgba(255,255,255,0.1); border: none; padding: 12px 20px; border-radius: 25px; color: white; margin-right: 10px; outline: none; border: 1px solid transparent; }
+        .search-header input:focus { border-color: var(--accent); }
+
+        /* LOADING */
+        .loading { text-align: center; padding: 40px; color: var(--gray); }
+        .loading i { font-size: 30px; color: var(--accent); animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        /* FOLDER VIEWS */
+        .folder-view { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 2500; padding: 20px 15px; overflow-y: auto; }
+        .folder-view.active { display: block; }
+
+        /* MOVIE DETAIL MODAL */
+        .movie-detail { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 2600; overflow-y: auto; }
+        .movie-detail.active { display: block; }
+        .detail-backdrop { width: 100%; height: 300px; background-size: cover; background-position: center; position: relative; }
+        .detail-backdrop::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 100%; background: linear-gradient(to bottom, transparent 0%, var(--bg) 100%); }
+        .detail-content { padding: 20px; margin-top: -50px; position: relative; z-index: 2; }
+        .detail-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+        .detail-meta { color: var(--gray); font-size: 12px; margin-bottom: 15px; }
+        .detail-overview { line-height: 1.6; color: #ccc; margin-bottom: 20px; }
+        .detail-actions { display: flex; gap: 10px; margin-bottom: 20px; }
+        .detail-btn { flex: 1; padding: 12px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+        .detail-btn.primary { background: var(--accent); color: #000; }
+        .detail-btn.secondary { background: #222; color: white; }
+        .detail-btn:active { transform: scale(0.95); }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<!-- ============================================ -->
+<!-- CONFIGURAÇÃO DA API - COLOQUE SUA API KEY AQUI -->
+<!-- ============================================ -->
+<script>
+    // CONFIGURAÇÃO DA API TMDB
+    // Obtenha sua API Key gratuita em: https://www.themoviedb.org/settings/api
+    const TMDB_CONFIG = {
+        API_KEY: 'SUA_API_KEY_AQUI', // <-- SUBSTITUA PELA SUA API KEY DO TMDB
+        BASE_URL: 'https://api.themoviedb.org/3',
+        IMAGE_BASE_URL: 'https://image.tmdb.org/t/p',
+        LANGUAGE: 'pt-PT'
+    };
+</script>
+
+<header id="main-header" class="active">
+    <img src="https://i.ibb.co/XZpqHLfz/1000007315.jpg" class="logo-img" alt="BRM Pro Max">
+    <div class="search-box">
+        <input type="text" placeholder="Procurar filmes, séries..." onfocus="openSearch()">
+        <i class="fas fa-search" style="color:var(--accent)"></i>
+    </div>
+</header>
+
+<div id="search-overlay" class="search-overlay">
+    <div class="search-header">
+        <input type="text" placeholder="Procurar no BRM..." id="searchInputOverlay" onkeyup="performSearch(this.value)">
+        <i class="fas fa-times" style="color:var(--accent); font-size:20px; cursor:pointer;" onclick="closeSearch()"></i>
+    </div>
+    <div id="searchContent" style="margin-top: 20px;"></div>
+</div>
+
+<div id="p-home" class="page active">
+    <div class="hero" id="heroSlide">
+        <div class="hero-content">
+            <div class="info-box" id="heroInfo">
+                <h2 id="heroTitle">Carregando...</h2>
+                <p id="heroOverview" style="margin: 10px 0; font-size: 14px; color: #ccc;"></p>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button class="detail-btn primary" onclick="playHeroMovie()" style="flex: none; padding: 10px 20px;">
+                        <i class="fas fa-play"></i> Ver Agora
+                    </button>
+                    <button class="detail-btn secondary" onclick="addToFavorites()" style="flex: none; padding: 10px 20px;">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="cat-list">
+        <div class="loading"><i class="fas fa-spinner"></i><br>Carregando conteúdo...</div>
+    </div>
+</div>
+
+<div id="p-dl" class="page">
+    <div id="dl-main-view">
+        <div class="profile-box">
+            <div class="avatar"><i class="fas fa-user"></i></div>
+            <div>
+                <b>Soraia Manuel</b><br>
+                <small style="color:var(--accent)">Free Plan</small>
+            </div>
+        </div>
+        <div class="premium-card">
+            <small>Obtém os teus benefícios premium</small>
+            <div style="font-size:10px; color:var(--gray)">(No ads 🍿) (720p Quality 💎) (Multi downloads 👑)</div>
+            <div style="margin-top:10px"><b>Check-in diário</b></div>
+            <div style="display:flex; gap:5px; margin:10px 0">
+                <div style="background:#222; padding:5px 10px; border-radius:4px">⭐+2</div>
+                <div style="background:#222; padding:5px 10px; border-radius:4px">⭐+2</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; background:#1a1a1a; padding:10px; border-radius:8px">
+                <small>Watch 30min (5/30) ⭐+1</small>
+                <button style="background:var(--accent); border:none; padding:4px 10px; border-radius:4px; font-weight:bold; cursor:pointer;">Go</button>
+            </div>
+        </div>
+        
+        <div class="dl-item">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <b>Downloads</b>
+                <i class="fas fa-chevron-right" style="color:var(--gray)"></i>
+            </div>
+            <div style="margin-top:10px; font-size:12px; color:var(--gray)">3 itens em download</div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 45%;"></div>
+            </div>
+            <div style="font-size:11px; color:var(--accent)">45% - Vingadores: Endgame</div>
+        </div>
+
+        <div class="folder-grid">
+            <div class="folder-item" onclick="openFolder('favorites')">
+                <i class="fas fa-heart"></i>
+                Favoritos
+            </div>
+            <div class="folder-item" onclick="openFolder('history')">
+                <i class="fas fa-history"></i>
+                Histórico
+            </div>
+            <div class="folder-item" onclick="openFolder('downloads')">
+                <i class="fas fa-download"></i>
+                Downloads
+            </div>
+            <div class="folder-item" onclick="openFolder('watchlist')">
+                <i class="fas fa-bookmark"></i>
+                Watchlist
+            </div>
+            <div class="folder-item" onclick="openFolder('rated')">
+                <i class="fas fa-star"></i>
+                Avaliados
+            </div>
+            <div class="folder-item" onclick="openFolder('shared')">
+                <i class="fas fa-share-alt"></i>
+                Partilhados
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="p-me" class="page">
+    <div class="me-header">
+        <h2>Definições</h2>
+    </div>
+    <div class="me-list">
+        <div class="me-item">
+            <div style="display:flex; align-items:center;">
+                <i class="fas fa-bell"></i>
+                <span>Notificações</span>
+            </div>
+            <div class="switch active" onclick="this.classList.toggle('active')"></div>
+        </div>
+        <div class="me-item">
+            <div style="display:flex; align-items:center;">
+                <i class="fas fa-moon"></i>
+                <span>Modo Escuro</span>
+            </div>
+            <div class="switch active" onclick="this.classList.toggle('active')"></div>
+        </div>
+        <div class="me-item">
+            <div style="display:flex; align-items:center;">
+                <i class="fas fa-wifi"></i>
+                <span>Download Wi-Fi apenas</span>
+            </div>
+            <div class="switch" onclick="this.classList.toggle('active')"></div>
+        </div>
+        <div class="me-item" onclick="showPage('language')">
+            <div style="display:flex; align-items:center;">
+                <i class="fas fa-globe"></i>
+                <span>Idioma</span>
+            </div>
+            <span style="color:var(--gray); font-size:12px;">Português <i class="fas fa-chevron-right"></i></span>
+        </div>
+        <div class="me-item" onclick="showPage('quality')">
+            <div style="display:flex; align-items:center;">
+                <i class="fas fa-video"></i>
+                <span>Qualidade de Streaming</span>
+            </div>
+            <span style="color:var(--gray); font-size:12px;">Auto <i class="fas fa-chevron-right"></i></span>
+        </div>
+        <div class="me-item" onclick="showPage('storage')">
+            <div style="display:flex; align-items:center;">
+                <i class="fas fa-hdd"></i>
+                <span>Gestão de Armazenamento</span>
+            </div>
+            <i class="fas fa-chevron-right" style="color:var(--gray)"></i>
+        </div>
+        <div class="me-item" onclick="showPage('about')">
+            <div style="display:flex; align-items:center;">
+                <i class="fas fa-info-circle"></i>
+                <span>Sobre</span>
+            </div>
+            <i class="fas fa-chevron-right" style="color:var(--gray)"></i>
+        </div>
+        <div class="me-item" onclick="showPage('help')">
+            <div style="display:flex; align-items:center;">
+                <i class="fas fa-question-circle"></i>
+                <span>Ajuda e Suporte</span>
+            </div>
+            <i class="fas fa-chevron-right" style="color:var(--gray)"></i>
+        </div>
+    </div>
+</div>
+
+<div id="player">
+    <div class="video-area">
+        <div class="video-placeholder">
+            <i class="fas fa-play-circle"></i>
+            <p>Reproduzindo...</p>
+            <p id="playerTitle" style="color: var(--accent); margin-top: 10px;"></p>
+        </div>
+    </div>
+    <div class="controls">
+        <div class="control-buttons">
+            <button class="control-btn"><i class="fas fa-backward"></i></button>
+            <button class="control-btn play" onclick="togglePlay()"><i class="fas fa-pause" id="playIcon"></i></button>
+            <button class="control-btn"><i class="fas fa-forward"></i></button>
+        </div>
+        <div style="margin-top: 20px; display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 12px; color: var(--gray);">12:45</span>
+            <div style="flex: 1; height: 4px; background: #333; border-radius: 2px;">
+                <div style="width: 45%; height: 100%; background: var(--accent); border-radius: 2px;"></div>
+            </div>
+            <span style="font-size: 12px; color: var(--gray);">45:20</span>
+        </div>
+        <div style="margin-top: 15px; display: flex; justify-content: space-around;">
+            <button class="control-btn" style="font-size: 18px;"><i class="fas fa-closed-captioning"></i></button>
+            <button class="control-btn" style="font-size: 18px;"><i class="fas fa-volume-up"></i></button>
+            <button class="control-btn" style="font-size: 18px;" onclick="closePlayer()"><i class="fas fa-times"></i></button>
+            <button class="control-btn" style="font-size: 18px;"><i class="fas fa-expand"></i></button>
+        </div>
+    </div>
+</div>
+
+<div id="folder-view" class="folder-view">
+    <div class="page-header">
+        <i class="fas fa-arrow-left" onclick="closeFolder()"></i>
+        <h2 id="folderTitle">Pasta</h2>
+    </div>
+    <div class="content-list" id="folderContent"></div>
+</div>
+
+<div id="movie-detail" class="movie-detail">
+    <div class="detail-backdrop" id="detailBackdrop"></div>
+    <div class="page-header" style="position: absolute; top: 0; background: transparent; border: none;">
+        <i class="fas fa-arrow-left" onclick="closeMovieDetail()"></i>
+    </div>
+    <div class="detail-content">
+        <h1 class="detail-title" id="detailTitle"></h1>
+        <div class="detail-meta" id="detailMeta"></div>
+        <div class="detail-overview" id="detailOverview"></div>
+        <div class="detail-actions">
+            <button class="detail-btn primary" onclick="playCurrentMovie()">
+                <i class="fas fa-play"></i> Reproduzir
+            </button>
+            <button class="detail-btn secondary" onclick="downloadCurrentMovie()">
+                <i class="fas fa-download"></i> Download
+            </button>
+        </div>
+    </div>
+</div>
+
+<nav>
+    <div class="nav-link active" onclick="switchTab('home')">
+        <i class="fas fa-home"></i>
+        Início
+    </div>
+    <div class="nav-link" onclick="switchTab('dl')">
+        <i class="fas fa-download"></i>
+        Downloads
+    </div>
+    <div class="nav-link" onclick="switchTab('me')">
+        <i class="fas fa-user"></i>
+        Eu
+    </div>
+</nav>
+
+<script>
+// ============================================
+// VARIÁVEIS GLOBAIS
+// ============================================
+let currentHeroMovie = null;
+let currentDetailMovie = null;
+let isPlaying = true;
+
+// ============================================
+// FUNÇÕES DA API TMDB
+// ============================================
+
+// Verificar se a API Key está configurada
+function checkApiKey() {
+    if (TMDB_CONFIG.API_KEY === 'SUA_API_KEY_AQUI' || !TMDB_CONFIG.API_KEY) {
+        console.warn('⚠️ TMDB API Key não configurada! Obtenha uma em https://www.themoviedb.org/settings/api');
+        return false;
+    }
+    return true;
+}
+
+// Buscar filmes populares
+async function fetchPopularMovies(page = 1) {
+    if (!checkApiKey()) return [];
+    
+    try {
+        const response = await fetch(
+            `${TMDB_CONFIG.BASE_URL}/movie/popular?api_key=${TMDB_CONFIG.API_KEY}&language=${TMDB_CONFIG.LANGUAGE}&page=${page}`
+        );
+        const data = await response.json();
+        return data.results || [];
+    } catch (error) {
+        console.error('Erro ao buscar filmes populares:', error);
+        return [];
+    }
+}
+
+// Buscar filmes em cartaz
+async function fetchNowPlaying(page = 1) {
+    if (!checkApiKey()) return [];
+    
+    try {
+        const response = await fetch(
+            `${TMDB_CONFIG.BASE_URL}/movie/now_playing?api_key=${TMDB_CONFIG.API_KEY}&language=${TMDB_CONFIG.LANGUAGE}&page=${page}`
+        );
+        const data = await response.json();
+        return data.results || [];
+    } catch (error) {
+        console.error('Erro ao buscar filmes em cartaz:', error);
+        return [];
+    }
+}
+
+// Buscar filmes mais bem avaliados
+async function fetchTopRated(page = 1) {
+    if (!checkApiKey()) return [];
+    
+    try {
+        const response = await fetch(
+            `${TMDB_CONFIG.BASE_URL}/movie/top_rated?api_key=${TMDB_CONFIG.API_KEY}&language=${TMDB_CONFIG.LANGUAGE}&page=${page}`
+        );
+        const data = await response.json();
+        return data.results || [];
+    } catch (error) {
+        console.error('Erro ao buscar filmes top rated:', error);
+        return [];
+    }
+}
+
+// Buscar séries populares
+async function fetchPopularTV(page = 1) {
+    if (!checkApiKey()) return [];
+    
+    try {
+        const response = await fetch(
+            `${TMDB_CONFIG.BASE_URL}/tv/popular?api_key=${TMDB_CONFIG.API_KEY}&language=${TMDB_CONFIG.LANGUAGE}&page=${page}`
+        );
+        const data = await response.json();
+        return data.results || [];
+    } catch (error) {
+        console.error('Erro ao buscar séries populares:', error);
+        return [];
+    }
+}
+
+// Buscar detalhes de um filme
+async function fetchMovieDetails(movieId) {
+    if (!checkApiKey()) return null;
+    
+    try {
+        const response = await fetch(
+            `${TMDB_CONFIG.BASE_URL}/movie/${movieId}?api_key=${TMDB_CONFIG.API_KEY}&language=${TMDB_CONFIG.LANGUAGE}&append_to_response=credits`
+        );
+        return await response.json();
+    } catch (error) {
+        console.error('Erro ao buscar detalhes:', error);
+        return null;
+    }
+}
+
+// Pesquisar filmes/séries
+async function searchMovies(query) {
+    if (!checkApiKey() || !query) return [];
+    
+    try {
+        const response = await fetch(
+            `${TMDB_CONFIG.BASE_URL}/search/multi?api_key=${TMDB_CONFIG.API_KEY}&language=${TMDB_CONFIG.LANGUAGE}&query=${encodeURIComponent(query)}&page=1`
+        );
+        const data = await response.json();
+        return data.results || [];
+    } catch (error) {
+        console.error('Erro na pesquisa:', error);
+        return [];
+    }
+}
+
+// Obter URL da imagem
+function getImageUrl(path, size = 'w500') {
+    if (!path) return 'https://via.placeholder.com/500x750?text=Sem+Imagem';
+    return `${TMDB_CONFIG.IMAGE_BASE_URL}/${size}${path}`;
+}
+
+// ============================================
+// FUNÇÕES DA INTERFACE
+// ============================================
+
+// Inicializar aplicação
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadHomeContent();
+});
+
+// Carregar conteúdo da home
+async function loadHomeContent() {
+    const catList = document.getElementById('cat-list');
+    
+    if (!checkApiKey()) {
+        catList.innerHTML = `
+            <div style="padding: 40px; text-align: center; color: var(--gray);">
+                <i class="fas fa-key" style="font-size: 40px; margin-bottom: 20px; color: var(--accent);"></i>
+                <h3>API Key não configurada</h3>
+                <p>Para usar o BRM Pro Max, você precisa configurar sua API Key do TMDB.</p>
+                <p style="font-size: 12px; margin-top: 20px;">
+                    1. Acesse <a href="https://www.themoviedb.org/settings/api" target="_blank" style="color: var(--accent);">themoviedb.org/settings/api</a><br>
+                    2. Crie uma conta gratuita<br>
+                    3. Copie sua API Key<br>
+                    4. Cole no arquivo HTML na seção TMDB_CONFIG
+                </p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Carregar hero (filme em destaque)
+    const popularMovies = await fetchPopularMovies(1);
+    if (popularMovies.length > 0) {
+        currentHeroMovie = popularMovies[0];
+        updateHero(currentHeroMovie);
+    }
+    
+    // Carregar categorias
+    let html = '';
+    
+    // Filmes Populares
+    html += await createCategoryRow('Filmes Populares', popularMovies.slice(1, 11));
+    
+    // Em Cartaz
+    const nowPlaying = await fetchNowPlaying();
+    html += await createCategoryRow('Em Cartaz', nowPlaying.slice(0, 10));
+    
+    // Mais Bem Avaliados
+    const topRated = await fetchTopRated();
+    html += await createCategoryRow('Mais Bem Avaliados', topRated.slice(0, 10));
+    
+    // Séries Populares
+    const popularTV = await fetchPopularTV();
+    html += await createCategoryRow('Séries Populares', popularTV.slice(0, 10));
+    
+    catList.innerHTML = html;
+}
+
+// Atualizar hero
+function updateHero(movie) {
+    const heroSlide = document.getElementById('heroSlide');
+    const heroTitle = document.getElementById('heroTitle');
+    const heroOverview = document.getElementById('heroOverview');
+    
+    heroSlide.style.backgroundImage = `url(${getImageUrl(movie.backdrop_path, 'original')})`;
+    heroTitle.textContent = movie.title || movie.name;
+    heroOverview.textContent = movie.overview ? movie.overview.substring(0, 150) + '...' : '';
+    
+    heroSlide.onclick = () => openMovieDetail(movie.id, 'movie');
+}
+
+// Criar linha de categoria
+async function createCategoryRow(title, items) {
+    if (!items || items.length === 0) return '';
+    
+    let cardsHtml = items.map(item => {
+        const posterPath = item.poster_path || item.backdrop_path;
+        const rating = item.vote_average ? item.vote_average.toFixed(1) : 'N/A';
+        const mediaType = item.media_type || (item.first_air_date ? 'tv' : 'movie');
+        
+        return `
+            <div class="movie-card" 
+                 style="background-image: url('${getImageUrl(posterPath, 'w342')}')"
+                 onclick="openMovieDetail(${item.id}, '${mediaType}')">
+                <div class="rating">⭐ ${rating}</div>
+            </div>
+        `;
+    }).join('');
+    
+    return `
+        <div class="cat-title">${title}</div>
+        <div class="scroll-row">${cardsHtml}</div>
+    `;
+}
+
+// Abrir detalhes do filme
+async function openMovieDetail(id, type) {
+    const detail = document.getElementById('movie-detail');
+    const backdrop = document.getElementById('detailBackdrop');
+    const title = document.getElementById('detailTitle');
+    const meta = document.getElementById('detailMeta');
+    const overview = document.getElementById('detailOverview');
+    
+    detail.classList.add('active');
+    
+    const movie = await fetchMovieDetails(id);
+    if (movie) {
+        currentDetailMovie = movie;
+        backdrop.style.backgroundImage = `url(${getImageUrl(movie.backdrop_path, 'original')})`;
+        title.textContent = movie.title || movie.name;
+        
+        const year = (movie.release_date || movie.first_air_date || '').substring(0, 4);
+        const runtime = movie.runtime ? `${movie.runtime} min` : '';
+        const genres = movie.genres ? movie.genres.map(g => g.name).join(', ') : '';
+        
+        meta.innerHTML = `${year} • ${runtime} • ${genres} • ⭐ ${movie.vote_average?.toFixed(1) || 'N/A'}`;
+        overview.textContent = movie.overview || 'Sem descrição disponível.';
+    }
+}
+
+// Fechar detalhes
+function closeMovieDetail() {
+    document.getElementById('movie-detail').classList.remove('active');
+}
+
+// Reproduzir filme do hero
+function playHeroMovie() {
+    if (currentHeroMovie) {
+        openPlayer(currentHeroMovie.title || currentHeroMovie.name);
+    }
+}
+
+// Reproduzir filme atual
+function playCurrentMovie() {
+    if (currentDetailMovie) {
+        openPlayer(currentDetailMovie.title || currentDetailMovie.name);
+    }
+}
+
+// Download filme atual
+function downloadCurrentMovie() {
+    alert('Iniciando download... (Funcionalidade simulada)');
+}
+
+// Adicionar aos favoritos
+function addToFavorites() {
+    alert('Adicionado aos favoritos!');
+}
+
+// Abrir player
+function openPlayer(title) {
+    document.getElementById('player').classList.add('active');
+    document.getElementById('playerTitle').textContent = title;
+    isPlaying = true;
+    updatePlayButton();
+}
+
+// Fechar player
+function closePlayer() {
+    document.getElementById('player').classList.remove('active');
+}
+
+// Toggle play/pause
+function togglePlay() {
+    isPlaying = !isPlaying;
+    updatePlayButton();
+}
+
+function updatePlayButton() {
+    const icon = document.getElementById('playIcon');
+    icon.className = isPlaying ? 'fas fa-pause' : 'fas fa-play';
+}
+
+// ============================================
+// NAVEGAÇÃO
+// ============================================
+
+function switchTab(tab) {
+    // Esconder todas as páginas
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+    
+    // Mostrar página selecionada
+    document.getElementById('p-' + tab).classList.add('active');
+    event.currentTarget.classList.add('active');
+    
+    // Controlar header
+    const header = document.getElementById('main-header');
+    if (tab === 'home') {
+        header.classList.add('active');
+    } else {
+        header.classList.remove('active');
+    }
+}
+
+// ============================================
+// PESQUISA
+// ============================================
+
+function openSearch() {
+    document.getElementById('search-overlay').classList.add('active');
+    document.getElementById('searchInputOverlay').focus();
+}
+
+function closeSearch() {
+    document.getElementById('search-overlay').classList.remove('active');
+    document.getElementById('searchContent').innerHTML = '';
+    document.getElementById('searchInputOverlay').value = '';
+}
+
+let searchTimeout;
+function performSearch(query) {
+    clearTimeout(searchTimeout);
+    
+    if (!query.trim()) {
+        document.getElementById('searchContent').innerHTML = '';
+        return;
+    }
+    
+    searchTimeout = setTimeout(async () => {
+        const results = await searchMovies(query);
+        displaySearchResults(results);
+    }, 500);
+}
+
+function displaySearchResults(results) {
+    const container = document.getElementById('searchContent');
+    
+    if (results.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--gray);">Nenhum resultado encontrado</div>';
+        return;
+    }
+    
+    container.innerHTML = results.map(item => {
+        if (item.media_type === 'person') return '';
+        
+        const posterPath = item.poster_path || item.backdrop_path;
+        const title = item.title || item.name;
+        const year = (item.release_date || item.first_air_date || '').substring(0, 4);
+        const mediaType = item.media_type === 'tv' ? 'Série' : 'Filme';
+        
+        return `
+            <div class="list-item" onclick="openMovieDetail(${item.id}, '${item.media_type}'); closeSearch();">
+                <div class="list-thumb" style="background-image: url('${getImageUrl(posterPath, 'w200')}')"></div>
+                <div class="list-info">
+                    <div class="list-title">${title}</div>
+                    <div class="list-meta">${mediaType} • ${year} • ⭐ ${item.vote_average?.toFixed(1) || 'N/A'}</div>
+                </div>
+                <div class="list-action"><i class="fas fa-chevron-right"></i></div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ============================================
+// PASTAS
+// ============================================
+
+function openFolder(folderName) {
+    const folderView = document.getElementById('folder-view');
+    const folderTitle = document.getElementById('folderTitle');
+    const folderContent = document.getElementById('folderContent');
+    
+    const titles = {
+        'favorites': 'Favoritos',
+        'history': 'Histórico',
+        'downloads': 'Downloads',
+        'watchlist': 'Watchlist',
+        'rated': 'Avaliados',
+        'shared': 'Partilhados'
+    };
+    
+    folderTitle.textContent = titles[folderName] || folderName;
+    folderContent.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><br>Carregando...</div>';
+    folderView.classList.add('active');
+    
+    // Simular conteúdo da pasta
+    setTimeout(() => {
+        folderContent.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: var(--gray);">
+                <i class="fas fa-folder-open" style="font-size: 50px; margin-bottom: 20px; opacity: 0.5;"></i>
+                <p>Esta pasta está vazia</p>
+            </div>
+        `;
+    }, 500);
+}
+
+function closeFolder() {
+    document.getElementById('folder-view').classList.remove('active');
+}
+
+// ============================================
+// PÁGINAS DE CONFIGURAÇÃO
+// ============================================
+
+function showPage(page) {
+    alert('Página ' + page + ' - Funcionalidade em desenvolvimento');
+}
+</script>
+
+</body>
+</html>'''
